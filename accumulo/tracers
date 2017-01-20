@@ -1,0 +1,3 @@
+{% for host in groups['tracers'] %}
+{{ hostvars[host]['ansible_fqdn'] }}
+{% endfor %}

@@ -1,0 +1,25 @@
+---
+
+- hosts: all
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+
+  tasks:
+  - name: kill processes
+    command: pkill -u accumulo
+    ignore_errors: True
+
+  - name: delete hdfs data
+    file: path={{ item }} state=absent
+    with_items:
+    - "{{ namenode_dir }}"
+    - "{{ datanode_dir }}"
+    - "{{ zookeeper_data_dir }}"
+    - "{{ hadoop_log_dir }}"
+    - "{{ zookeeper_log_dir }}"
+    - "{{ accumulo_log_dir }}"
+    - "{{ hadoop_tmp_dir }}"
+
+...

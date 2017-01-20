@@ -1,0 +1,39 @@
+---
+
+- hosts: master
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: stop accumulo
+    command: "{{ accumulo_dir }}/bin/stop-all.sh"
+    ignore_errors: True
+
+- hosts: namenode
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: stop hdfs
+    command: "{{ hadoop_dir }}/sbin/stop-dfs.sh"
+    ignore_errors: True
+
+- hosts: zookeepers
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: stop zookeepers
+    command: "{{ zookeeper_dir }}/bin/zkServer.sh stop"
+    ignore_errors: True
+
+...

@@ -1,0 +1,1 @@
+{{ hostvars[groups['gc'][0]]['ansible_fqdn'] }}

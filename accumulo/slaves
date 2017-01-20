@@ -1,0 +1,3 @@
+{% for host in groups['tabletservers'] %}
+{{ hostvars[host]['ansible_fqdn'] }}
+{% endfor %}

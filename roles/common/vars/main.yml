@@ -1,0 +1,24 @@
+---
+
+home_dir: /home/accumulo
+hadoop_dir: /home/accumulo/hadoop-2.7.3
+zookeeper_dir: /home/accumulo/zookeeper-3.4.9
+accumulo_dir: /home/accumulo/accumulo-1.8.0
+
+cluster_name: ec2ster
+accumulo_name: ec2mulo
+accumulo_hdfs_path: /accumulo
+
+data_dir: /var/data
+
+namenode_dir: /var/data/hdfs-name
+datanode_dir: /var/data/hdfs-data
+zookeeper_data_dir: /var/data/zookeeper
+
+hadoop_log_dir: /var/data/logs/hadoop
+zookeeper_log_dir: /var/data/logs/zookeeper
+accumulo_log_dir: /var/data/logs/accumulo
+
+hadoop_tmp_dir: /tmp/hadoop-accumulo
+
+...

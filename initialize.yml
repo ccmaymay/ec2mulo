@@ -1,0 +1,59 @@
+---
+
+- hosts: zookeepers
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: start zookeepers
+    command: "{{ zookeeper_dir }}/bin/zkServer.sh start"
+
+- hosts: namenode
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: start hdfs
+    command: "{{ hadoop_dir }}/sbin/start-dfs.sh"
+
+- hosts: master
+  roles:
+  - common
+  vars_files:
+  - secrets.yml
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: initialize accumulo
+    command: "{{ accumulo_dir }}/bin/accumulo init --password {{ accumulo_password }} --instance-name {{ accumulo_name }} --clear-instance-name"
+
+- hosts: namenode
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: stop hdfs
+    command: "{{ hadoop_dir }}/sbin/stop-dfs.sh"
+
+- hosts: zookeepers
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: stop zookeepers
+    command: "{{ zookeeper_dir }}/bin/zkServer.sh stop"
+
+...

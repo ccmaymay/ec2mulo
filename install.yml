@@ -1,0 +1,194 @@
+---
+
+- hosts: all
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+
+  tasks:
+  - name: ensure time zone link is set
+    file: src=/usr/share/zoneinfo/America/New_York dest=/etc/localtime state=link force=yes
+
+  - name: ensure time zone is set in sysconfig
+    lineinfile: dest=/etc/sysconfig/clock state=present line="ZONE=America/New_York"
+
+  - name: ensure UTC HW clock is set in sysconfig
+    lineinfile: dest=/etc/sysconfig/clock state=present line="UTC=true"
+
+  - name: ensure swappiness is low
+    sysctl: name=vm.swappiness reload=yes state=present sysctl_set=yes value=10
+
+  - name: update yum
+    yum: name=* state=latest
+
+  - name: ensure gcc is installed
+    yum: name=gcc state=latest
+
+  - name: ensure g++ is installed
+    yum: name=gcc-c++ state=latest
+
+  - name: ensure make is installed
+    yum: name=make state=latest
+
+  - name: ensure java is installed
+    yum: name=java-1.8.0-openjdk state=latest
+
+  - name: ensure javac is installed
+    yum: name=java-1.8.0-openjdk-devel state=latest
+
+  - name: ensure java 8 is selected
+    alternatives: name=java link=/usr/bin/java path=/usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java
+
+  - name: ensure javac 8 is selected
+    alternatives: name=javac link=/usr/bin/javac path=/usr/lib/jvm/java-1.8.0-openjdk.x86_64/bin/javac
+
+  - name: ensure javah 8 is selected
+    alternatives: name=javah link=/usr/bin/javah path=/usr/lib/jvm/java-1.8.0-openjdk.x86_64/bin/javah
+
+  - name: ensure jre 8 is selected
+    alternatives: name=jre_openjdk link=/usr/lib/jvm/jre-openjdk path=/usr/lib/jvm/jre-1.8.0-openjdk.x86_64
+
+  - name: ensure jdk 8 is selected
+    alternatives: name=java_sdk_openjdk link=/usr/lib/jvm/java-openjdk path=/usr/lib/jvm/java-1.8.0-openjdk.x86_64
+
+  - name: ensure accumulo group exists
+    group: name=accumulo
+
+  - name: ensure accumulo user exists
+    user: name=accumulo shell=/bin/bash createhome=yes group=accumulo
+
+  - name: ensure data dir is accessible
+    file: path={{ data_dir }} state=directory owner=accumulo group=accumulo
+
+- hosts: master:namenode:monitor:tracers:gc:datanodes:zookeepers:tabletservers
+  roles:
+  - common
+  remote_user: ec2-user
+  become: yes
+ 
+  tasks:
+  - name: reload ssh config
+    service: name=sshd state=restarted
+
+- hosts: master:namenode:monitor:tracers:gc:datanodes:zookeepers:tabletservers
+  roles:
+  - common
+  vars_files:
+  - secrets.yml
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: ensure local ssh dir exists
+    file: path={{ home_dir }}/.ssh state=directory
+
+  - name: ensure ssh config is set
+    copy: src=config dest={{ home_dir }}/.ssh/config
+
+  - name: copy private ssh key
+    copy: src=id_accumulo_rsa dest={{ home_dir }}/.ssh/id_rsa mode=0600 force=yes
+
+  - name: create authorized keys
+    copy: src=id_accumulo_rsa.pub dest={{ home_dir }}/.ssh/authorized_keys mode=0600 force=yes
+
+  - name: copy public ssh key
+    copy: src=id_accumulo_rsa.pub dest={{ home_dir }}/.ssh/id_rsa.pub mode=0644 force=yes
+
+- hosts: all
+  roles:
+  - common
+  vars_files:
+  - secrets.yml
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: ensure hadoop has been fetched
+    unarchive: remote_src=yes src=http://apache.cs.utah.edu/hadoop/common/hadoop-2.7.3/hadoop-2.7.3.tar.gz dest={{ home_dir }} creates={{ home_dir }}/hadoop-2.7.3/bin/hadoop
+
+  - name: copy hadoop config
+    template: src=hadoop/{{ item }} dest={{ hadoop_dir }}/etc/hadoop/{{ item }} force=yes
+    items:
+    - core-site.xml
+    - slaves
+    - mapred-site.xml
+    - hdfs-site.xml
+    - hadoop-env.sh
+    - log4j.xml
+
+  - name: ensure zookeeper has been fetched
+    unarchive: remote_src=yes src=http://apache.cs.utah.edu/zookeeper/zookeeper-3.4.9/zookeeper-3.4.9.tar.gz dest={{ home_dir }} creates={{ home_dir }}/zookeeper-3.4.9/bin/zkServer.sh
+
+  - name: copy zookeeper config
+    template: src=zookeeper/{{ item }} dest={{ zookeeper_dir }}/conf/{{ item }} force=yes
+    items:
+    - zoo.cfg
+    - log4j.xml
+
+  - name: copy zookeeper env
+    template: src=zookeeper/zkEnv.sh dest={{ zookeeper_dir }}/bin/zkEnv.sh force=yes
+
+- hosts: zookeepers
+  roles:
+  - common
+  vars_files:
+  - secrets.yml
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: ensure zookeeper data dir exists
+    file: path={{ zookeeper_data_dir }} state=directory
+
+  - name: copy zookeeper id
+    template: src=zookeeper/myid dest={{ zookeeper_data_dir }}/myid force=yes
+
+- hosts: all
+  roles:
+  - common
+  vars_files:
+  - secrets.yml
+  remote_user: ec2-user
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: ensure accumulo has been fetched
+    unarchive: remote_src=yes src=http://apache.cs.utah.edu/accumulo/1.8.0/accumulo-1.8.0-bin.tar.gz dest={{ home_dir }} creates={{ home_dir }}/accumulo-1.8.0/bin/accumulo
+
+  - name: copy accumulo config
+    template: src=accumulo/{{ item }} dest={{ accumulo_dir }}/conf/{{ item }} force=yes
+    items:
+    - accumulo-env.sh
+    - masters
+    - slaves
+    - gc
+    - tracers
+    - monitor
+    - accumulo-site.xml
+    - accumulo-metrics.xml
+    - auditLog.xml
+    - client.conf
+    - generic_logger.xml
+    - hadoop-metrics2-accumulo.properties
+    - monitor_logger.xml
+    - log4j.xml
+
+  - name: ensure native library is built
+    command: "{{ accumulo_dir }}/bin/build_native_library.sh creates={{ accumulo_dir }}/lib/native/libaccumulo.so"
+
+- hosts: namenode
+  roles:
+  - common
+  become: yes
+  become_user: accumulo
+
+  tasks:
+  - name: ensure namenode is formatted
+    command: "{{ hadoop_dir }}/bin/hdfs namenode -format {{ cluster_name }} creates={{ namenode_dir }}/current/VERSION"
+
+...
